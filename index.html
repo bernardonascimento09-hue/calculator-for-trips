@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vacation Planner</title>
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#ff6b3d" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="ambient">
+      <div class="blob blob-one"></div>
+      <div class="blob blob-two"></div>
+      <div class="blob blob-three"></div>
+    </div>
+
+    <main class="shell">
+      <header class="hero">
+        <div>
+          <p class="kicker" data-i18n="kicker">Vacation Cost Studio</p>
+          <h1 data-i18n="hero_title">Vacation Planner</h1>
+        </div>
+        <div class="hero-card">
+          <div class="hero-toolbar">
+            <div class="lang-toggle">
+              <label for="langSelect" data-i18n="label_language">Language</label>
+              <select id="langSelect">
+                <option value="en" data-i18n="option_lang_en">English</option>
+                <option value="es" data-i18n="option_lang_es">Español</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <p class="eyebrow" data-i18n="hero_annual_label">
+              Total Annual Vacation Spend
+            </p>
+            <h2 id="annualTotal">$0</h2>
+          </div>
+          <div class="hero-split">
+            <div>
+              <p class="eyebrow" data-i18n="hero_count_label">Vacations Added</p>
+              <p class="metric" id="vacationCount">0</p>
+            </div>
+            <div>
+              <p class="eyebrow" data-i18n="hero_avg_label">Per Trip Average</p>
+              <p class="metric" id="avgTrip">$0</p>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <section class="panel" id="add-vacation">
+        <div class="panel-header">
+          <div>
+            <p class="step" data-i18n="step1_label">Step 1</p>
+            <h2 data-i18n="step1_title">Add a Vacation</h2>
+            <p class="panel-sub" data-i18n="step1_sub">
+              Enter the cost breakdown and how many times you repeat the trip
+              each year. All costs are per trip.
+            </p>
+          </div>
+          <div class="panel-actions">
+            <button class="ghost" id="resetEntry" type="button" data-i18n="btn_reset_entry">
+              Reset Entry
+            </button>
+            <button class="primary" id="addVacation" type="button" data-i18n="btn_add_vacation">
+              Add Vacation
+            </button>
+          </div>
+        </div>
+
+        <form class="grid" id="vacationForm" autocomplete="off">
+          <div class="field span-2">
+            <label for="vacationName" data-i18n="label_name">Vacation Name</label>
+            <input
+              id="vacationName"
+              name="vacationName"
+              type="text"
+              placeholder="e.g., Amalfi Coast Escape"
+              data-i18n-placeholder="placeholder_name"
+            />
+          </div>
+
+          <div class="field">
+            <label for="lodging" data-i18n="label_lodging">Vacation Amount (Stay)</label>
+            <div class="input-wrap">
+              <span>$</span>
+              <input id="lodging" name="lodging" type="number" min="0" step="0.01" value="0" />
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="flights" data-i18n="label_flights">Flights</label>
+            <div class="input-wrap">
+              <span>$</span>
+              <input id="flights" name="flights" type="number" min="0" step="0.01" value="0" />
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="food" data-i18n="label_food">Food</label>
+            <div class="input-wrap">
+              <span>$</span>
+              <input id="food" name="food" type="number" min="0" step="0.01" value="0" />
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="transport" data-i18n="label_transport">Transportation</label>
+            <div class="input-wrap">
+              <span>$</span>
+              <input id="transport" name="transport" type="number" min="0" step="0.01" value="0" />
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="tours" data-i18n="label_tours">Tours & Activities</label>
+            <div class="input-wrap">
+              <span>$</span>
+              <input id="tours" name="tours" type="number" min="0" step="0.01" value="0" />
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="repeats" data-i18n="label_repeats">Times Per Year</label>
+            <input id="repeats" name="repeats" type="number" min="1" step="1" value="1" />
+          </div>
+
+          <div class="form-message" id="formMessage" aria-live="polite"></div>
+        </form>
+      </section>
+
+      <section class="panel" id="portfolio">
+        <div class="panel-header">
+          <div>
+            <p class="step" data-i18n="step2_label">Step 2</p>
+            <h2 data-i18n="step2_title">Your Vacation Portfolio</h2>
+            <p class="panel-sub" data-i18n="step2_sub">
+              Review totals and see the cost split for each vacation added.
+            </p>
+          </div>
+          <div class="panel-actions">
+            <button class="ghost" id="resetPortfolio" type="button" data-i18n="btn_reset_portfolio">
+              Reset Portfolio
+            </button>
+          </div>
+        </div>
+
+        <div class="portfolio-summary">
+          <div class="summary-card">
+            <p class="eyebrow" data-i18n="summary_annual">Total Annual Cost</p>
+            <h3 id="portfolioAnnual">$0</h3>
+          </div>
+          <div class="summary-card">
+            <p class="eyebrow" data-i18n="summary_per_trip">Combined Per Trip Cost</p>
+            <h3 id="portfolioPerTrip">$0</h3>
+          </div>
+          <div class="summary-card">
+            <p class="eyebrow" data-i18n="summary_repeats">Total Trips / Year</p>
+            <h3 id="portfolioRepeats">0</h3>
+          </div>
+        </div>
+
+        <div class="portfolio-list" id="vacationList">
+          <div class="empty-state" id="emptyState">
+            <h3 data-i18n="empty_title">No vacations yet</h3>
+            <p data-i18n="empty_body">Add your first vacation to build a portfolio.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" id="projection">
+        <div class="panel-header">
+          <div>
+            <p class="step" data-i18n="step3_label">Step 3</p>
+            <h2 data-i18n="step3_title">Multi-Year Projection</h2>
+            <p class="panel-sub" data-i18n="step3_sub">
+              Estimate long-term vacation spending with inflation.
+            </p>
+          </div>
+          <div class="panel-actions">
+            <button class="ghost" id="resetProjection" type="button" data-i18n="btn_reset_projection">
+              Reset Projection
+            </button>
+            <button class="primary" id="calcProjection" type="button" data-i18n="btn_calc_projection">
+              Calculate Projection
+            </button>
+          </div>
+        </div>
+
+        <div class="projection-grid">
+          <div class="field">
+            <label for="years" data-i18n="label_years">Number of Years</label>
+            <input id="years" name="years" type="number" min="1" step="1" value="5" />
+          </div>
+          <div class="field">
+            <label for="inflation" data-i18n="label_inflation">Inflation Rate (%)</label>
+            <input
+              id="inflation"
+              name="inflation"
+              type="number"
+              min="0"
+              step="0.1"
+              value="3"
+            />
+          </div>
+          <div class="projection-message" id="projectionMessage" aria-live="polite"></div>
+        </div>
+
+        <div class="projection-results">
+          <div class="result-card">
+            <p class="eyebrow" data-i18n="result_without_inflation">Total Without Inflation</p>
+            <h3 id="totalNoInflation">$0</h3>
+          </div>
+          <div class="result-card">
+            <p class="eyebrow" data-i18n="result_with_inflation">Total With Inflation</p>
+            <h3 id="totalWithInflation">$0</h3>
+          </div>
+          <div class="result-card">
+            <p class="eyebrow" data-i18n="result_final_year">Final Year Annual Cost</p>
+            <h3 id="finalYearCost">$0</h3>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="script.js"></script>
+  </body>
+</html>
