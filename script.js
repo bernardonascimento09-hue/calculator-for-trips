@@ -95,7 +95,7 @@ const translations = {
     auth_create_title: "Create Account",
     auth_create_sub:
       "Enter email and password to continue beta testing.",
-    auth_login_title: "Sign In",
+    auth_login_title: "Create Account",
     auth_login_sub: "Enter email and password to continue beta testing.",
     auth_label_username: "Email",
     auth_label_password: "Password",
@@ -191,7 +191,7 @@ const translations = {
     auth_create_title: "Crear Cuenta",
     auth_create_sub:
       "Ingresa correo y contraseña para continuar las pruebas beta.",
-    auth_login_title: "Iniciar Sesión",
+    auth_login_title: "Crear Cuenta",
     auth_login_sub:
       "Ingresa correo y contraseña para continuar las pruebas beta.",
     auth_label_username: "Correo",
