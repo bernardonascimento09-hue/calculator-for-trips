@@ -5,6 +5,14 @@ const state = {
   language: "en",
 };
 
+const AUTH_STORAGE_KEY = "vacationPlannerAuthRecord";
+const MIN_PASSWORD_LENGTH = 6;
+
+const authState = {
+  mode: "signup",
+  record: null,
+};
+
 const createCurrencyFormatter = (language) => {
   const locale = language === "es" ? "es-ES" : "en-US";
   return new Intl.NumberFormat(locale, {
@@ -78,6 +86,33 @@ const translations = {
     label_language: "Language",
     option_lang_en: "English",
     option_lang_es: "Español",
+    auth_kicker: "Secure Access",
+    auth_create_title: "Create Account",
+    auth_create_sub:
+      "Create an email and password to unlock the calculator.",
+    auth_login_title: "Sign In",
+    auth_login_sub: "Enter your saved email and password to continue.",
+    auth_label_username: "Email",
+    auth_label_password: "Password",
+    auth_label_confirm: "Confirm Password",
+    auth_placeholder_username: "Enter email",
+    auth_placeholder_password: "Enter password",
+    auth_placeholder_confirm: "Confirm password",
+    auth_storage_note:
+      "Credentials are stored locally in plain text for testing.",
+    auth_btn_create: "Create and Continue",
+    auth_btn_login: "Login",
+    auth_error_username_required: "Enter a valid email address.",
+    auth_error_password_required: "Enter your password.",
+    auth_error_password_min: "Password must be at least 6 characters.",
+    auth_error_password_mismatch: "Passwords do not match.",
+    auth_error_invalid_credentials: "Invalid email or password.",
+    auth_error_storage_unavailable:
+      "Local storage is unavailable in this browser, so login cannot be saved.",
+    auth_error_storage_failed: "Could not store login details. Try again.",
+    update_available_message: "A new version is available.",
+    btn_update_now: "Update now",
+    btn_update_later: "Later",
     message_invalid_cost: "Add at least one cost above $0 to create a vacation.",
     message_invalid_repeats: "Times per year must be at least 1.",
     message_invalid_years: "Enter a valid number of years.",
@@ -142,6 +177,36 @@ const translations = {
     label_language: "Idioma",
     option_lang_en: "Inglés",
     option_lang_es: "Español",
+    auth_kicker: "Acceso Seguro",
+    auth_create_title: "Crear Cuenta",
+    auth_create_sub:
+      "Crea un correo y contraseña para desbloquear la calculadora.",
+    auth_login_title: "Iniciar Sesión",
+    auth_login_sub:
+      "Ingresa tu correo y contraseña guardados para continuar.",
+    auth_label_username: "Correo",
+    auth_label_password: "Contraseña",
+    auth_label_confirm: "Confirmar Contraseña",
+    auth_placeholder_username: "Ingresa correo",
+    auth_placeholder_password: "Ingresa contraseña",
+    auth_placeholder_confirm: "Confirma contraseña",
+    auth_storage_note:
+      "Las credenciales se guardan localmente en texto plano para pruebas.",
+    auth_btn_create: "Crear y Continuar",
+    auth_btn_login: "Iniciar Sesión",
+    auth_error_username_required:
+      "Ingresa un correo electrónico válido.",
+    auth_error_password_required: "Ingresa tu contraseña.",
+    auth_error_password_min: "La contraseña debe tener al menos 6 caracteres.",
+    auth_error_password_mismatch: "Las contraseñas no coinciden.",
+    auth_error_invalid_credentials: "Correo o contraseña incorrectos.",
+    auth_error_storage_unavailable:
+      "El almacenamiento local no está disponible y no se puede guardar el acceso.",
+    auth_error_storage_failed:
+      "No se pudo guardar la información de acceso. Intenta de nuevo.",
+    update_available_message: "Hay una nueva versión disponible.",
+    btn_update_now: "Actualizar ahora",
+    btn_update_later: "Después",
     message_invalid_cost:
       "Agrega al menos un costo mayor a $0 para crear unas vacaciones.",
     message_invalid_repeats: "Las veces por año deben ser al menos 1.",
@@ -166,9 +231,13 @@ const t = (key, vars = {}) => {
 };
 
 const syncLanguageFromStorage = () => {
-  const stored = window.localStorage.getItem("vacationPlannerLang");
-  if (stored === "en" || stored === "es") {
-    state.language = stored;
+  try {
+    const stored = window.localStorage.getItem("vacationPlannerLang");
+    if (stored === "en" || stored === "es") {
+      state.language = stored;
+    }
+  } catch {
+    state.language = "en";
   }
   currencyFormatter = createCurrencyFormatter(state.language);
 };
@@ -196,6 +265,23 @@ const totalNoInflation = document.querySelector("#totalNoInflation");
 const totalWithInflation = document.querySelector("#totalWithInflation");
 const finalYearCost = document.querySelector("#finalYearCost");
 const langSelect = document.querySelector("#langSelect");
+const appShell = document.querySelector("#appShell");
+const authGate = document.querySelector("#authGate");
+const authForm = document.querySelector("#authForm");
+const authHeading = document.querySelector("#authHeading");
+const authSubtitle = document.querySelector("#authSubtitle");
+const authUsernameInput = document.querySelector("#authUsername");
+const authPasswordInput = document.querySelector("#authPassword");
+const authConfirmInput = document.querySelector("#authConfirm");
+const authConfirmWrap = document.querySelector("#authConfirmWrap");
+const authMessage = document.querySelector("#authMessage");
+const authSubmitButton = document.querySelector("#authSubmit");
+const updateToast = document.querySelector("#updateToast");
+const updateNowButton = document.querySelector("#updateNow");
+const updateLaterButton = document.querySelector("#updateLater");
+
+let waitingServiceWorker = null;
+let isRefreshingForUpdate = false;
 
 const defaults = {
   vacationName: "",
@@ -222,6 +308,116 @@ const parseYears = (value) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
+const hasLocalStorageAccess = () => {
+  try {
+    const key = "__vacation_planner_storage_test__";
+    window.localStorage.setItem(key, "1");
+    window.localStorage.removeItem(key);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+
+const loadAuthRecord = () => {
+  try {
+    const raw = window.localStorage.getItem(AUTH_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (
+      !parsed ||
+      typeof parsed.username !== "string" ||
+      typeof parsed.password !== "string"
+    ) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+};
+
+const saveAuthRecord = (record) => {
+  try {
+    window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(record));
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const setAuthMessage = (value) => {
+  if (!authMessage) return;
+  authMessage.textContent = value;
+};
+
+const setAuthMode = (mode) => {
+  authState.mode = mode;
+
+  if (authHeading) {
+    authHeading.textContent = t(
+      mode === "signup" ? "auth_create_title" : "auth_login_title"
+    );
+  }
+
+  if (authSubtitle) {
+    authSubtitle.textContent = t(
+      mode === "signup" ? "auth_create_sub" : "auth_login_sub"
+    );
+  }
+
+  if (authSubmitButton) {
+    authSubmitButton.textContent = t(
+      mode === "signup" ? "auth_btn_create" : "auth_btn_login"
+    );
+  }
+
+  if (authConfirmWrap) {
+    authConfirmWrap.hidden = mode !== "signup";
+  }
+
+  if (authConfirmInput) {
+    authConfirmInput.required = mode === "signup";
+    if (mode !== "signup") {
+      authConfirmInput.value = "";
+    }
+  }
+
+  if (authPasswordInput) {
+    authPasswordInput.autocomplete =
+      mode === "signup" ? "new-password" : "current-password";
+  }
+
+  if (authUsernameInput) {
+    authUsernameInput.autocomplete = "email";
+  }
+};
+
+const lockApp = () => {
+  if (!authGate) return;
+  document.body.classList.add("app-locked");
+  authGate.hidden = false;
+  if (appShell) {
+    appShell.setAttribute("aria-hidden", "true");
+  }
+  window.setTimeout(() => {
+    authUsernameInput?.focus();
+  }, 0);
+};
+
+const unlockApp = () => {
+  if (!authGate) return;
+  document.body.classList.remove("app-locked");
+  authGate.hidden = true;
+  if (appShell) {
+    appShell.removeAttribute("aria-hidden");
+  }
+  authForm?.reset();
+  setAuthMessage("");
+};
+
 const updateAddButtonLabel = () => {
   addButton.textContent = state.editingId
     ? t("btn_save_changes")
@@ -243,6 +439,63 @@ const applyTranslations = () => {
   });
 
   updateAddButtonLabel();
+  setAuthMode(authState.mode);
+};
+
+const showUpdateToast = (worker) => {
+  if (!updateToast) return;
+  waitingServiceWorker = worker;
+  updateToast.hidden = false;
+  requestAnimationFrame(() => {
+    updateToast.classList.add("is-visible");
+  });
+};
+
+const hideUpdateToast = () => {
+  if (!updateToast) return;
+  updateToast.classList.remove("is-visible");
+  updateToast.hidden = true;
+  waitingServiceWorker = null;
+};
+
+const watchServiceWorkerRegistration = (registration) => {
+  if (!registration) return;
+
+  if (registration.waiting) {
+    showUpdateToast(registration.waiting);
+  }
+
+  registration.addEventListener("updatefound", () => {
+    const installingWorker = registration.installing;
+    if (!installingWorker) return;
+
+    installingWorker.addEventListener("statechange", () => {
+      if (
+        installingWorker.state === "installed" &&
+        navigator.serviceWorker.controller
+      ) {
+        showUpdateToast(installingWorker);
+      }
+    });
+  });
+};
+
+const initializeAuthentication = () => {
+  if (!authGate || !authForm) return;
+
+  if (!hasLocalStorageAccess()) {
+    setAuthMode("signup");
+    lockApp();
+    setAuthMessage(t("auth_error_storage_unavailable"));
+    if (authSubmitButton) {
+      authSubmitButton.disabled = true;
+    }
+    return;
+  }
+
+  authState.record = loadAuthRecord();
+  setAuthMode(authState.record ? "login" : "signup");
+  lockApp();
 };
 
 const sumCosts = (costs) =>
@@ -500,16 +753,120 @@ calcProjectionButton.addEventListener("click", () => {
   calculateProjection();
 });
 
+if (authForm) {
+  authForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    setAuthMessage("");
+
+    const username = authUsernameInput?.value.trim() || "";
+    const password = authPasswordInput?.value || "";
+    const confirmPassword = authConfirmInput?.value || "";
+
+    if (!isValidEmail(username)) {
+      setAuthMessage(t("auth_error_username_required"));
+      return;
+    }
+
+    if (!password) {
+      setAuthMessage(t("auth_error_password_required"));
+      return;
+    }
+
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      setAuthMessage(t("auth_error_password_min"));
+      return;
+    }
+
+    if (authState.mode === "signup") {
+      if (password !== confirmPassword) {
+        setAuthMessage(t("auth_error_password_mismatch"));
+        return;
+      }
+
+      const record = { username, password };
+      const stored = saveAuthRecord(record);
+      if (!stored) {
+        setAuthMessage(t("auth_error_storage_failed"));
+        return;
+      }
+      authState.record = record;
+      setAuthMode("login");
+      unlockApp();
+      return;
+    }
+
+    if (!authState.record) {
+      authState.record = loadAuthRecord();
+      if (!authState.record) {
+        setAuthMode("signup");
+        setAuthMessage(t("auth_error_storage_failed"));
+        return;
+      }
+    }
+
+    if (username !== authState.record.username) {
+      setAuthMessage(t("auth_error_invalid_credentials"));
+      return;
+    }
+
+    if (password !== authState.record.password) {
+      setAuthMessage(t("auth_error_invalid_credentials"));
+      return;
+    }
+
+    setAuthMode("login");
+    unlockApp();
+  });
+}
+
 if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (isRefreshingForUpdate) return;
+    isRefreshingForUpdate = true;
+    window.location.reload();
+  });
+
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./service-worker.js").catch(() => {});
+    navigator.serviceWorker
+      .register("./service-worker.js")
+      .then((registration) => {
+        watchServiceWorkerRegistration(registration);
+        registration.update().catch(() => {});
+
+        window.setInterval(() => {
+          registration.update().catch(() => {});
+        }, 60 * 60 * 1000);
+      })
+      .catch(() => {});
+  });
+}
+
+if (updateNowButton) {
+  updateNowButton.addEventListener("click", () => {
+    if (waitingServiceWorker) {
+      const worker = waitingServiceWorker;
+      hideUpdateToast();
+      worker.postMessage({ type: "SKIP_WAITING" });
+    } else {
+      window.location.reload();
+    }
+  });
+}
+
+if (updateLaterButton) {
+  updateLaterButton.addEventListener("click", () => {
+    hideUpdateToast();
   });
 }
 
 langSelect.addEventListener("change", () => {
   state.language = langSelect.value;
   currencyFormatter = createCurrencyFormatter(state.language);
-  window.localStorage.setItem("vacationPlannerLang", state.language);
+  try {
+    window.localStorage.setItem("vacationPlannerLang", state.language);
+  } catch {
+    // Ignore storage write failures (private mode / blocked storage).
+  }
   applyTranslations();
   renderPortfolio();
   calculateProjection();
@@ -540,3 +897,4 @@ applyTranslations();
 resetEntryForm();
 renderPortfolio();
 calculateProjection();
+initializeAuthentication();

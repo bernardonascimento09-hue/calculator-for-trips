@@ -25,6 +25,16 @@ body {
   overflow-x: hidden;
 }
 
+body.app-locked {
+  overflow: hidden;
+}
+
+body.app-locked #appShell {
+  filter: blur(6px);
+  pointer-events: none;
+  user-select: none;
+}
+
 .ambient {
   position: fixed;
   inset: 0;
@@ -160,6 +170,60 @@ body {
 .hero-card h2 {
   font-size: 2.3rem;
   margin: 0;
+}
+
+.auth-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.52);
+  backdrop-filter: blur(10px);
+}
+
+.auth-card {
+  width: min(500px, 100%);
+  border-radius: 24px;
+  padding: 24px;
+  background: var(--card);
+  border: 1px solid var(--stroke);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
+}
+
+.auth-card h2 {
+  margin: 8px 0 6px;
+  font-size: 2rem;
+  font-family: "Fraunces", serif;
+}
+
+.auth-subtitle {
+  margin: 0;
+  color: var(--muted);
+}
+
+.auth-form {
+  margin-top: 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.auth-note {
+  margin: 2px 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.auth-message {
+  min-height: 1.2em;
+  color: var(--accent-dark);
+  font-size: 0.95rem;
+}
+
+.auth-submit {
+  justify-self: flex-end;
 }
 
 .hero-split {
@@ -505,6 +569,49 @@ body {
   color: var(--muted);
 }
 
+.update-toast {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 40;
+  width: min(420px, calc(100vw - 32px));
+  background: rgba(15, 23, 42, 0.94);
+  color: #f8fafc;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 18px;
+  padding: 14px;
+  box-shadow: 0 24px 50px rgba(2, 6, 23, 0.45);
+  backdrop-filter: blur(10px);
+  transform: translateY(12px);
+  opacity: 0;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.update-toast.is-visible {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.update-toast p {
+  margin: 0 0 12px;
+  line-height: 1.4;
+}
+
+.update-toast-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.update-toast .ghost {
+  border-color: rgba(248, 250, 252, 0.4);
+  color: #f8fafc;
+}
+
+.update-toast .ghost:hover {
+  box-shadow: 0 10px 20px rgba(2, 6, 23, 0.45);
+}
+
 @media (max-width: 720px) {
   .panel {
     padding: 20px;
@@ -516,5 +623,10 @@ body {
 
   .hero-card h2 {
     font-size: 1.9rem;
+  }
+
+  .update-toast {
+    right: 16px;
+    bottom: 16px;
   }
 }

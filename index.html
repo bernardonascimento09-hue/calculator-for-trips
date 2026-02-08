@@ -19,7 +19,7 @@
       <div class="blob blob-three"></div>
     </div>
 
-    <main class="shell">
+    <main class="shell" id="appShell">
       <header class="hero">
         <div>
           <p class="kicker" data-i18n="kicker">Vacation Cost Studio</p>
@@ -228,6 +228,72 @@
         </div>
       </section>
     </main>
+
+    <section class="auth-gate" id="authGate" hidden aria-live="polite">
+      <div class="auth-card">
+        <p class="kicker" data-i18n="auth_kicker">Secure Access</p>
+        <h2 id="authHeading"></h2>
+        <p class="auth-subtitle" id="authSubtitle"></p>
+        <form id="authForm" class="auth-form" autocomplete="off">
+          <div class="field">
+            <label for="authUsername" data-i18n="auth_label_username">Email</label>
+            <input
+              id="authUsername"
+              name="authUsername"
+              type="email"
+              data-i18n-placeholder="auth_placeholder_username"
+              placeholder="Enter email"
+              autocomplete="email"
+              minlength="3"
+              required
+            />
+          </div>
+          <div class="field">
+            <label for="authPassword" data-i18n="auth_label_password">Password</label>
+            <input
+              id="authPassword"
+              name="authPassword"
+              type="password"
+              data-i18n-placeholder="auth_placeholder_password"
+              placeholder="Enter password"
+              autocomplete="current-password"
+              minlength="6"
+              required
+            />
+          </div>
+          <div class="field" id="authConfirmWrap">
+            <label for="authConfirm" data-i18n="auth_label_confirm">Confirm password</label>
+            <input
+              id="authConfirm"
+              name="authConfirm"
+              type="password"
+              data-i18n-placeholder="auth_placeholder_confirm"
+              placeholder="Confirm password"
+              minlength="6"
+            />
+          </div>
+          <p class="auth-note" data-i18n="auth_storage_note">
+            Credentials are stored locally on this device.
+          </p>
+          <div class="auth-message" id="authMessage" aria-live="polite"></div>
+          <button type="submit" class="primary auth-submit" id="authSubmit"></button>
+        </form>
+      </div>
+    </section>
+
+    <aside class="update-toast" id="updateToast" hidden aria-live="polite">
+      <p data-i18n="update_available_message">
+        A new version is available.
+      </p>
+      <div class="update-toast-actions">
+        <button type="button" class="ghost" id="updateLater" data-i18n="btn_update_later">
+          Later
+        </button>
+        <button type="button" class="primary" id="updateNow" data-i18n="btn_update_now">
+          Update
+        </button>
+      </div>
+    </aside>
 
     <script src="script.js"></script>
   </body>

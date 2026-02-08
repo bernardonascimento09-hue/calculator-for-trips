@@ -1,4 +1,4 @@
-const CACHE_NAME = "vacation-planner-v2";
+const CACHE_NAME = "vacation-planner-v3";
 const FONT_CACHE = "vacation-planner-fonts-v1";
 const ASSETS = [
   "./",
@@ -15,7 +15,6 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
   );
-  self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
@@ -29,6 +28,12 @@ self.addEventListener("activate", (event) => {
     )
   );
   self.clients.claim();
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener("fetch", (event) => {
