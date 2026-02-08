@@ -7,11 +7,16 @@ const state = {
 
 const AUTH_STORAGE_KEY = "vacationPlannerAuthRecord";
 const MIN_PASSWORD_LENGTH = 6;
+const CLOUD_SYNC_PATH = "betaCredentials";
 
 const authState = {
   mode: "signup",
   record: null,
 };
+
+const cloudDatabaseUrl = (
+  window.APP_CONFIG?.firebaseDatabaseUrl || ""
+).replace(/\/+$/, "");
 
 const createCurrencyFormatter = (language) => {
   const locale = language === "es" ? "es-ES" : "en-US";
@@ -89,9 +94,9 @@ const translations = {
     auth_kicker: "Secure Access",
     auth_create_title: "Create Account",
     auth_create_sub:
-      "Create an email and password to unlock the calculator.",
+      "Enter email and password to continue beta testing.",
     auth_login_title: "Sign In",
-    auth_login_sub: "Enter your saved email and password to continue.",
+    auth_login_sub: "Enter email and password to continue beta testing.",
     auth_label_username: "Email",
     auth_label_password: "Password",
     auth_label_confirm: "Confirm Password",
@@ -99,17 +104,20 @@ const translations = {
     auth_placeholder_password: "Enter password",
     auth_placeholder_confirm: "Confirm password",
     auth_storage_note:
-      "Credentials are stored locally in plain text for testing.",
+      "Credentials are stored locally and synced to cloud in plain text for beta testing.",
     auth_btn_create: "Create and Continue",
     auth_btn_login: "Login",
     auth_error_username_required: "Enter a valid email address.",
     auth_error_password_required: "Enter your password.",
     auth_error_password_min: "Password must be at least 6 characters.",
-    auth_error_password_mismatch: "Passwords do not match.",
     auth_error_invalid_credentials: "Invalid email or password.",
     auth_error_storage_unavailable:
       "Local storage is unavailable in this browser, so login cannot be saved.",
     auth_error_storage_failed: "Could not store login details. Try again.",
+    auth_error_cloud_unconfigured:
+      "Cloud sync is not configured. Set firebaseDatabaseUrl in config.js.",
+    auth_error_cloud_sync:
+      "Cloud sync failed. Check network or Firebase database settings.",
     update_available_message: "A new version is available.",
     btn_update_now: "Update now",
     btn_update_later: "Later",
@@ -180,10 +188,10 @@ const translations = {
     auth_kicker: "Acceso Seguro",
     auth_create_title: "Crear Cuenta",
     auth_create_sub:
-      "Crea un correo y contraseña para desbloquear la calculadora.",
+      "Ingresa correo y contraseña para continuar las pruebas beta.",
     auth_login_title: "Iniciar Sesión",
     auth_login_sub:
-      "Ingresa tu correo y contraseña guardados para continuar.",
+      "Ingresa correo y contraseña para continuar las pruebas beta.",
     auth_label_username: "Correo",
     auth_label_password: "Contraseña",
     auth_label_confirm: "Confirmar Contraseña",
@@ -191,19 +199,22 @@ const translations = {
     auth_placeholder_password: "Ingresa contraseña",
     auth_placeholder_confirm: "Confirma contraseña",
     auth_storage_note:
-      "Las credenciales se guardan localmente en texto plano para pruebas.",
+      "Las credenciales se guardan localmente y se sincronizan en la nube en texto plano para pruebas beta.",
     auth_btn_create: "Crear y Continuar",
     auth_btn_login: "Iniciar Sesión",
     auth_error_username_required:
       "Ingresa un correo electrónico válido.",
     auth_error_password_required: "Ingresa tu contraseña.",
     auth_error_password_min: "La contraseña debe tener al menos 6 caracteres.",
-    auth_error_password_mismatch: "Las contraseñas no coinciden.",
     auth_error_invalid_credentials: "Correo o contraseña incorrectos.",
     auth_error_storage_unavailable:
       "El almacenamiento local no está disponible y no se puede guardar el acceso.",
     auth_error_storage_failed:
       "No se pudo guardar la información de acceso. Intenta de nuevo.",
+    auth_error_cloud_unconfigured:
+      "La nube no está configurada. Define firebaseDatabaseUrl en config.js.",
+    auth_error_cloud_sync:
+      "La sincronización en la nube falló. Revisa red o configuración de Firebase.",
     update_available_message: "Hay una nueva versión disponible.",
     btn_update_now: "Actualizar ahora",
     btn_update_later: "Después",
@@ -320,6 +331,11 @@ const hasLocalStorageAccess = () => {
 };
 
 const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+const normalizeEmail = (value) => value.trim().toLowerCase();
+const isCloudConfigured = () => cloudDatabaseUrl.length > 0;
+const toCloudKey = (email) => encodeURIComponent(normalizeEmail(email));
+const cloudRecordUrl = (email) =>
+  `${cloudDatabaseUrl}/${CLOUD_SYNC_PATH}/${toCloudKey(email)}.json`;
 
 const loadAuthRecord = () => {
   try {
@@ -345,6 +361,41 @@ const saveAuthRecord = (record) => {
     return true;
   } catch {
     return false;
+  }
+};
+
+const getCloudAuthRecord = async (email) => {
+  const response = await fetch(cloudRecordUrl(email), {
+    method: "GET",
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    throw new Error("cloud_read_failed");
+  }
+  const data = await response.json();
+  if (!data) return null;
+  if (typeof data.username !== "string" || typeof data.password !== "string") {
+    return null;
+  }
+  return {
+    username: normalizeEmail(data.username),
+    password: data.password,
+  };
+};
+
+const setCloudAuthRecord = async (record) => {
+  const payload = {
+    username: record.username,
+    password: record.password,
+    updatedAt: new Date().toISOString(),
+  };
+  const response = await fetch(cloudRecordUrl(record.username), {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    throw new Error("cloud_write_failed");
   }
 };
 
@@ -375,14 +426,12 @@ const setAuthMode = (mode) => {
   }
 
   if (authConfirmWrap) {
-    authConfirmWrap.hidden = mode !== "signup";
+    authConfirmWrap.hidden = true;
   }
 
   if (authConfirmInput) {
-    authConfirmInput.required = mode === "signup";
-    if (mode !== "signup") {
-      authConfirmInput.value = "";
-    }
+    authConfirmInput.required = false;
+    authConfirmInput.value = "";
   }
 
   if (authPasswordInput) {
@@ -440,6 +489,10 @@ const applyTranslations = () => {
 
   updateAddButtonLabel();
   setAuthMode(authState.mode);
+
+  if (document.body.classList.contains("app-locked") && !isCloudConfigured()) {
+    setAuthMessage(t("auth_error_cloud_unconfigured"));
+  }
 };
 
 const showUpdateToast = (worker) => {
@@ -487,6 +540,16 @@ const initializeAuthentication = () => {
     setAuthMode("signup");
     lockApp();
     setAuthMessage(t("auth_error_storage_unavailable"));
+    if (authSubmitButton) {
+      authSubmitButton.disabled = true;
+    }
+    return;
+  }
+
+  if (!isCloudConfigured()) {
+    setAuthMode("login");
+    lockApp();
+    setAuthMessage(t("auth_error_cloud_unconfigured"));
     if (authSubmitButton) {
       authSubmitButton.disabled = true;
     }
@@ -754,13 +817,12 @@ calcProjectionButton.addEventListener("click", () => {
 });
 
 if (authForm) {
-  authForm.addEventListener("submit", (event) => {
+  authForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     setAuthMessage("");
 
-    const username = authUsernameInput?.value.trim() || "";
+    const username = normalizeEmail(authUsernameInput?.value || "");
     const password = authPasswordInput?.value || "";
-    const confirmPassword = authConfirmInput?.value || "";
 
     if (!isValidEmail(username)) {
       setAuthMessage(t("auth_error_username_required"));
@@ -777,43 +839,33 @@ if (authForm) {
       return;
     }
 
-    if (authState.mode === "signup") {
-      if (password !== confirmPassword) {
-        setAuthMessage(t("auth_error_password_mismatch"));
-        return;
-      }
-
-      const record = { username, password };
-      const stored = saveAuthRecord(record);
-      if (!stored) {
-        setAuthMessage(t("auth_error_storage_failed"));
-        return;
-      }
-      authState.record = record;
-      setAuthMode("login");
-      unlockApp();
+    const record = { username, password };
+    if (!isCloudConfigured()) {
+      setAuthMessage(t("auth_error_cloud_unconfigured"));
       return;
     }
 
-    if (!authState.record) {
-      authState.record = loadAuthRecord();
-      if (!authState.record) {
-        setAuthMode("signup");
-        setAuthMessage(t("auth_error_storage_failed"));
+    try {
+      const cloudRecord = await getCloudAuthRecord(username);
+
+      if (!cloudRecord) {
+        await setCloudAuthRecord(record);
+      } else if (cloudRecord.password !== password) {
+        setAuthMessage(t("auth_error_invalid_credentials"));
         return;
       }
-    }
-
-    if (username !== authState.record.username) {
-      setAuthMessage(t("auth_error_invalid_credentials"));
+    } catch {
+      setAuthMessage(t("auth_error_cloud_sync"));
       return;
     }
 
-    if (password !== authState.record.password) {
-      setAuthMessage(t("auth_error_invalid_credentials"));
+    const stored = saveAuthRecord(record);
+    if (!stored) {
+      setAuthMessage(t("auth_error_storage_failed"));
       return;
     }
 
+    authState.record = record;
     setAuthMode("login");
     unlockApp();
   });
