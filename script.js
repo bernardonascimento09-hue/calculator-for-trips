@@ -6,7 +6,6 @@ const state = {
 };
 
 const AUTH_STORAGE_KEY = "vacationPlannerAuthRecord";
-const MIN_PASSWORD_LENGTH = 6;
 const CLOUD_SYNC_PATH = "betaCredentials";
 
 const authState = {
@@ -107,9 +106,9 @@ const translations = {
       "Credentials are stored locally and synced to cloud in plain text for beta testing.",
     auth_btn_create: "Create and Continue",
     auth_btn_login: "Login",
-    auth_error_username_required: "Enter a valid email address.",
+    auth_error_username_required: "Enter an email or username.",
     auth_error_password_required: "Enter your password.",
-    auth_error_password_min: "Password must be at least 6 characters.",
+    auth_error_password_min: "Password must be at least 1 character.",
     auth_error_invalid_credentials: "Invalid email or password.",
     auth_error_storage_unavailable:
       "Local storage is unavailable in this browser, so login cannot be saved.",
@@ -205,9 +204,9 @@ const translations = {
     auth_btn_create: "Crear y Continuar",
     auth_btn_login: "Iniciar Sesión",
     auth_error_username_required:
-      "Ingresa un correo electrónico válido.",
+      "Ingresa un correo o nombre de usuario.",
     auth_error_password_required: "Ingresa tu contraseña.",
-    auth_error_password_min: "La contraseña debe tener al menos 6 caracteres.",
+    auth_error_password_min: "La contraseña debe tener al menos 1 carácter.",
     auth_error_invalid_credentials: "Correo o contraseña incorrectos.",
     auth_error_storage_unavailable:
       "El almacenamiento local no está disponible y no se puede guardar el acceso.",
@@ -334,8 +333,7 @@ const hasLocalStorageAccess = () => {
   }
 };
 
-const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-const normalizeEmail = (value) => value.trim().toLowerCase();
+const normalizeEmail = (value) => value.trim();
 const isCloudConfigured = () => cloudDatabaseUrl.length > 0;
 const toCloudKey = (email) => {
   const bytes = new TextEncoder().encode(normalizeEmail(email));
@@ -373,25 +371,6 @@ const saveAuthRecord = (record) => {
   } catch {
     return false;
   }
-};
-
-const getCloudAuthRecord = async (email) => {
-  const response = await fetch(cloudRecordUrl(email), {
-    method: "GET",
-    cache: "no-store",
-  });
-  if (!response.ok) {
-    throw new Error(`cloud_read_failed:${response.status}`);
-  }
-  const data = await response.json();
-  if (!data) return null;
-  if (typeof data.username !== "string" || typeof data.password !== "string") {
-    return null;
-  }
-  return {
-    username: normalizeEmail(data.username),
-    password: data.password,
-  };
 };
 
 const setCloudAuthRecord = async (record) => {
@@ -835,18 +814,13 @@ if (authForm) {
     const username = normalizeEmail(authUsernameInput?.value || "");
     const password = authPasswordInput?.value || "";
 
-    if (!isValidEmail(username)) {
+    if (!username) {
       setAuthMessage(t("auth_error_username_required"));
       return;
     }
 
     if (!password) {
       setAuthMessage(t("auth_error_password_required"));
-      return;
-    }
-
-    if (password.length < MIN_PASSWORD_LENGTH) {
-      setAuthMessage(t("auth_error_password_min"));
       return;
     }
 
@@ -857,14 +831,7 @@ if (authForm) {
     }
 
     try {
-      const cloudRecord = await getCloudAuthRecord(username);
-
-      if (!cloudRecord) {
-        await setCloudAuthRecord(record);
-      } else if (cloudRecord.password !== password) {
-        setAuthMessage(t("auth_error_invalid_credentials"));
-        return;
-      }
+      await setCloudAuthRecord(record);
     } catch (error) {
       const detail =
         typeof error?.message === "string" ? error.message.split(":")[1] : "";
