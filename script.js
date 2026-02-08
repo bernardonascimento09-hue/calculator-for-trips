@@ -118,6 +118,8 @@ const translations = {
       "Cloud sync is not configured. Set firebaseDatabaseUrl in config.js.",
     auth_error_cloud_sync:
       "Cloud sync failed. Check network or Firebase database settings.",
+    auth_error_cloud_sync_status:
+      "Cloud sync failed ({status}). Check Firebase rules/database URL.",
     update_available_message: "A new version is available.",
     btn_update_now: "Update now",
     btn_update_later: "Later",
@@ -215,6 +217,8 @@ const translations = {
       "La nube no está configurada. Define firebaseDatabaseUrl en config.js.",
     auth_error_cloud_sync:
       "La sincronización en la nube falló. Revisa red o configuración de Firebase.",
+    auth_error_cloud_sync_status:
+      "La sincronización en la nube falló ({status}). Revisa reglas y URL de Firebase.",
     update_available_message: "Hay una nueva versión disponible.",
     btn_update_now: "Actualizar ahora",
     btn_update_later: "Después",
@@ -333,7 +337,14 @@ const hasLocalStorageAccess = () => {
 const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 const normalizeEmail = (value) => value.trim().toLowerCase();
 const isCloudConfigured = () => cloudDatabaseUrl.length > 0;
-const toCloudKey = (email) => encodeURIComponent(normalizeEmail(email));
+const toCloudKey = (email) => {
+  const bytes = new TextEncoder().encode(normalizeEmail(email));
+  let binary = "";
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+  return window.btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+};
 const cloudRecordUrl = (email) =>
   `${cloudDatabaseUrl}/${CLOUD_SYNC_PATH}/${toCloudKey(email)}.json`;
 
@@ -370,7 +381,7 @@ const getCloudAuthRecord = async (email) => {
     cache: "no-store",
   });
   if (!response.ok) {
-    throw new Error("cloud_read_failed");
+    throw new Error(`cloud_read_failed:${response.status}`);
   }
   const data = await response.json();
   if (!data) return null;
@@ -395,7 +406,7 @@ const setCloudAuthRecord = async (record) => {
     body: JSON.stringify(payload),
   });
   if (!response.ok) {
-    throw new Error("cloud_write_failed");
+    throw new Error(`cloud_write_failed:${response.status}`);
   }
 };
 
@@ -854,8 +865,14 @@ if (authForm) {
         setAuthMessage(t("auth_error_invalid_credentials"));
         return;
       }
-    } catch {
-      setAuthMessage(t("auth_error_cloud_sync"));
+    } catch (error) {
+      const detail =
+        typeof error?.message === "string" ? error.message.split(":")[1] : "";
+      if (detail) {
+        setAuthMessage(t("auth_error_cloud_sync_status", { status: detail }));
+      } else {
+        setAuthMessage(t("auth_error_cloud_sync"));
+      }
       return;
     }
 
